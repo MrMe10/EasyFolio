@@ -180,7 +180,7 @@ export function LoginForm({
                 </Button>
                 <FieldDescription className="text-center">
                   Don&apos;t have an account? {" "}
-                  <Link href="/sign-up" className="text-primary hover:underline">
+                  <Link href="/sign_up" className="text-primary hover:underline">
                     Sign up
                   </Link>
                 </FieldDescription>

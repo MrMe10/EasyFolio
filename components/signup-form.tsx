@@ -20,21 +20,32 @@ import {
 import { Input } from "@/components/ui/input"
 import { supabaseBrowser } from "@/lib/supabase"
 
+type AccountType = 'employer' | 'employee'
+
 export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+  const [selectedAccountType, setSelectedAccountType] = useState<AccountType | null>(null)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setLoading(true)
-    setMessage("")
+  event.preventDefault()
+  setLoading(true)
+  setMessage("")  
     
     const formData = new FormData(event.currentTarget)
     const name = formData.get("name") as string
     const email = formData.get("email") as string
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirm-password") as string
+    const accountType = formData.get("account-type") as AccountType
     
+    // Validate account type selection
+    if (!accountType) {
+      setMessage("Please select an account type")
+      setLoading(false)
+      return
+    }
+
     // Validate passwords match
     if (password !== confirmPassword) {
       setMessage("Passwords don't match")
@@ -59,6 +70,7 @@ export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
         options: {
           data: {
             full_name: name,
+            account_type: accountType,
           }
         }
       })
@@ -71,16 +83,16 @@ export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
           .from('customuser')
           .insert({
             supabase_user_id: data.user.id,
-            username: email.split('@')[0] + '_' + Date.now(), // Generate unique username
+            username: email.split('@')[0] + '_' + Date.now(),
             first_name: name.split(' ')[0] || '',
             last_name: name.split(' ').slice(1).join(' ') || '',
             email: email,
-            account_type: 'customer', // or 'job_seeker', 'employer', etc.
+            account_type: accountType, // Now using the selected account type
             is_staff: false,
             is_active: true,
             is_superuser: false,
             date_joined: new Date().toISOString(),
-            password: '', // Not needed since Supabase handles auth
+            password: '',
           })
         
         if (profileError) {
@@ -99,13 +111,18 @@ export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
   }
 
   async function handleGoogleSignup() {
+    if (!selectedAccountType) {
+      setMessage("Please select an account type first")
+      return
+    }
+
     setLoading(true)
     try {
       const supabase = supabaseBrowser()
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback?account_type=${selectedAccountType}`
         }
       })
       if (error) setMessage(error.message)
@@ -136,6 +153,50 @@ export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
                 {message}
               </div>
             )}
+            
+            <Field>
+              <FieldLabel>Account Type</FieldLabel>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex flex-col items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedAccountType === 'employee' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="account-type"
+                    value="employee"
+                    checked={selectedAccountType === 'employee'}
+                    onChange={(e) => setSelectedAccountType(e.target.value as AccountType)}
+                    className="sr-only"
+                    disabled={loading}
+                  />
+                  <div className="text-lg font-medium">Employee</div>
+                  <div className="text-sm text-gray-500 text-center">Looking for job opportunities</div>
+                </label>
+                
+                <label className={`flex flex-col items-center p-4 border rounded-lg cursor-pointer transition-colors ${
+                  selectedAccountType === 'employer' 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="radio"
+                    name="account-type"
+                    value="employer"
+                    checked={selectedAccountType === 'employer'}
+                    onChange={(e) => setSelectedAccountType(e.target.value as AccountType)}
+                    className="sr-only"
+                    disabled={loading}
+                  />
+                  <div className="text-lg font-medium">Employer</div>
+                  <div className="text-sm text-gray-500 text-center">Posting job opportunities</div>
+                </label>
+              </div>
+              <FieldDescription>
+                Choose your account type. This cannot be changed later.
+              </FieldDescription>
+            </Field>
             
             <Field>
               <FieldLabel htmlFor="name">Full Name</FieldLabel>
@@ -192,14 +253,14 @@ export function SignupForm({ ...props }: ComponentProps<typeof Card>) {
             
             <Field>
               <div className="flex flex-col gap-3">
-                <Button type="submit" disabled={loading}>
+                <Button type="submit" disabled={loading || !selectedAccountType}>
                   {loading ? "Creating account..." : "Create Account"}
                 </Button>
                 <Button 
                   variant="outline" 
                   type="button" 
                   onClick={handleGoogleSignup}
-                  disabled={loading}
+                  disabled={loading || !selectedAccountType}
                 >
                   Sign up with Google
                 </Button>
